@@ -2,20 +2,199 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>斑馬線 AI 辨識</title>
-    
-    <!-- 引入 ONNX Runtime Web -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>斑馬線 / 紅綠燈 AI 辨識</title>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <style>
+        body { font-family: sans-serif; max-width: 960px; margin: 20px auto; padding: 0 12px; }
+        canvas { max-width: 100%; height: auto; margin-top: 12px; border: 1px solid #ccc; }
+        #status { margin: 10px 0; }
+    </style>
 </head>
 <body>
-    <h2>斑馬線 AI 離線辨識</h2>
-    
+    <h2>斑馬線 / 紅綠燈 AI 離線辨識</h2>
+
     <input type="file" id="imageInput" accept="image/*" disabled>
     <div id="status">⏳ 正在載入模型中...</div>
     <canvas id="outputCanvas"></canvas>
 
     <script>
-        // 這裡之後放 JavaScript 程式碼
+const MODEL_SIZE = 640;
+const CONF_THRESHOLD = 0.4;
+const IOU_THRESHOLD = 0.45;
+
+// 順序必須和訓練時一致(從模型 metadata 讀到的)
+const CLASS_NAMES = ['crosswalk', 'traffic light'];
+const CLASS_LABELS = ['斑馬線', '紅綠燈'];
+const CLASS_COLORS = ['#00FF00', '#FF9800'];
+
+let session = null;
+const statusDiv = document.getElementById('status');
+const imageInput = document.getElementById('imageInput');
+const canvas = document.getElementById('outputCanvas');
+const ctx = canvas.getContext('2d');
+
+async function initModel() {
+    try {
+        session = await ort.InferenceSession.create('./best.onnx');
+        statusDiv.innerText = "✅ 模型載入完成!請選擇圖片。";
+        imageInput.disabled = false;
+    } catch (e) {
+        statusDiv.innerText = "❌ 模型載入失敗,請確認 best.onnx 是否存在。";
+        console.error(e);
+    }
+}
+initModel();
+
+// 前處理:等比例縮放 + 補灰邊(letterbox),避免圖片被拉伸變形
+function preprocessImage(img) {
+    const scale = Math.min(MODEL_SIZE / img.width, MODEL_SIZE / img.height);
+    const newW = Math.round(img.width * scale);
+    const newH = Math.round(img.height * scale);
+    const padX = (MODEL_SIZE - newW) / 2;
+    const padY = (MODEL_SIZE - newH) / 2;
+
+    const tmp = document.createElement('canvas');
+    tmp.width = MODEL_SIZE;
+    tmp.height = MODEL_SIZE;
+    const tctx = tmp.getContext('2d');
+    tctx.fillStyle = 'rgb(114,114,114)';
+    tctx.fillRect(0, 0, MODEL_SIZE, MODEL_SIZE);
+    tctx.drawImage(img, padX, padY, newW, newH);
+
+    const { data } = tctx.getImageData(0, 0, MODEL_SIZE, MODEL_SIZE);
+    const area = MODEL_SIZE * MODEL_SIZE;
+    const floatData = new Float32Array(3 * area);
+    for (let i = 0; i < area; i++) {
+        floatData[i] = data[i * 4] / 255;
+        floatData[area + i] = data[i * 4 + 1] / 255;
+        floatData[2 * area + i] = data[i * 4 + 2] / 255;
+    }
+
+    return {
+        tensor: new ort.Tensor('float32', floatData, [1, 3, MODEL_SIZE, MODEL_SIZE]),
+        scale, padX, padY
+    };
+}
+
+imageInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file || !session) return;
+
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+
+    img.onload = async () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        statusDiv.innerText = "⚡ 正在進行 AI 推理...";
+
+        try {
+            const { tensor, scale, padX, padY } = preprocessImage(img);
+            const results = await session.run({ images: tensor });
+            const output = results[Object.keys(results)[0]];
+
+            const boxes = postprocess(output, scale, padX, padY, img.width, img.height);
+
+            ctx.drawImage(img, 0, 0);
+            drawBoxes(boxes);
+
+            if (boxes.length === 0) {
+                statusDiv.innerText = "⚠️ 未偵測到斑馬線或紅綠燈";
+            } else {
+                const counts = CLASS_LABELS.map((name, c) =>
+                    `${name} ${boxes.filter(b => b.cls === c).length} 個`);
+                statusDiv.innerText = `✅ 偵測結果:${counts.join('、')}`;
+            }
+        } catch (err) {
+            statusDiv.innerText = "❌ 推論失敗,請看 Console 錯誤訊息。";
+            console.error(err);
+        }
+        URL.revokeObjectURL(img.src);
+    };
+});
+
+// 後處理:輸出形狀 [1, 4+類別數, 候選框數]
+function postprocess(output, scale, padX, padY, origW, origH) {
+    const data = output.data;
+    const numAttrs = output.dims[1];      // 6 = 4 + 2 類別
+    const numBoxes = output.dims[2];      // 8400
+    const numClasses = numAttrs - 4;
+    const boxes = [];
+
+    for (let i = 0; i < numBoxes; i++) {
+        // 找出分數最高的類別
+        let bestCls = 0, bestScore = 0;
+        for (let c = 0; c < numClasses; c++) {
+            const s = data[(4 + c) * numBoxes + i];
+            if (s > bestScore) { bestScore = s; bestCls = c; }
+        }
+        if (bestScore < CONF_THRESHOLD) continue;
+
+        const cx = data[0 * numBoxes + i];
+        const cy = data[1 * numBoxes + i];
+        const w  = data[2 * numBoxes + i];
+        const h  = data[3 * numBoxes + i];
+
+        // 扣掉 letterbox 的灰邊,再除以縮放比例,還原到原圖座標
+        let x1 = (cx - w / 2 - padX) / scale;
+        let y1 = (cy - h / 2 - padY) / scale;
+        let x2 = (cx + w / 2 - padX) / scale;
+        let y2 = (cy + h / 2 - padY) / scale;
+
+        x1 = Math.max(0, x1); y1 = Math.max(0, y1);
+        x2 = Math.min(origW, x2); y2 = Math.min(origH, y2);
+
+        boxes.push({ x: x1, y: y1, w: x2 - x1, h: y2 - y1, score: bestScore, cls: bestCls });
+    }
+    return nms(boxes);
+}
+
+// 各類別分開做 NMS,避免斑馬線的框把紅綠燈的框刪掉
+function nms(boxes) {
+    boxes.sort((a, b) => b.score - a.score);
+    const result = [];
+    for (const box of boxes) {
+        const overlap = result.some(r => r.cls === box.cls && iou(r, box) > IOU_THRESHOLD);
+        if (!overlap) result.push(box);
+    }
+    return result;
+}
+
+function iou(a, b) {
+    const x1 = Math.max(a.x, b.x);
+    const y1 = Math.max(a.y, b.y);
+    const x2 = Math.min(a.x + a.w, b.x + b.w);
+    const y2 = Math.min(a.y + a.h, b.y + b.h);
+    const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+    const union = a.w * a.h + b.w * b.h - inter;
+    return union > 0 ? inter / union : 0;
+}
+
+function drawBoxes(boxes) {
+    // 線條與字體隨圖片大小縮放,大圖才看得清楚
+    const base = Math.max(canvas.width, canvas.height);
+    const lineW = Math.max(2, Math.round(base / 400));
+    const fontSize = Math.max(14, Math.round(base / 50));
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.lineWidth = lineW;
+
+    boxes.forEach(box => {
+        const color = CLASS_COLORS[box.cls] || '#00FFFF';
+        const text = `${CLASS_NAMES[box.cls]} ${(box.score * 100).toFixed(1)}%`;
+        const textW = ctx.measureText(text).width + 10;
+        const labelH = fontSize + 8;
+        const labelY = box.y - labelH < 0 ? box.y : box.y - labelH;
+
+        ctx.strokeStyle = color;
+        ctx.strokeRect(box.x, box.y, box.w, box.h);
+        ctx.fillStyle = color;
+        ctx.fillRect(box.x, labelY, textW, labelH);
+        ctx.fillStyle = '#000';
+        ctx.fillText(text, box.x + 5, labelY + fontSize);
+    });
+}
     </script>
 </body>
 </html>
