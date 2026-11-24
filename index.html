@@ -36,11 +36,15 @@
         .card li { margin-bottom:4px; }
         .tag { display:inline-block; font-size:12px; padding:1px 10px; border-radius:10px; color:#fff; margin-bottom:8px; }
 
-        .light { border-top:6px solid; }
-        .light.red { border-color:#d32f2f; } .light.yellow { border-color:#f9a825; } .light.green { border-color:#2e7d32; }
-        .light .dot { font-size:28px; }
-
-        .slogan { margin-top:16px; background:#fff8e1; border:1px solid #ffe082; border-radius:12px; padding:14px 20px; text-align:center; font-size:18px; font-weight:bold; }
+        .std { border-left:6px solid; }
+        .std.red { border-color:#d32f2f; } .std.green { border-color:#2e7d32; } .std.orange { border-color:#ef6c00; }
+        .std p, .feat p { margin:0; }
+        .feat { text-align:center; }
+        .feat .ico { font-size:34px; }
+        .card ol { margin:0; padding-left:22px; }
+        .card ol li { margin-bottom:6px; }
+        .tip { margin:12px 0 0; background:#fff8e1; border:1px solid #ffe082; border-radius:8px; padding:10px 14px; }
+        code { background:#eceff1; padding:1px 6px; border-radius:4px; font-size:90%; }
 
         #demo { padding-bottom: 32px; }
         .demo-box { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
@@ -59,99 +63,83 @@
 <body>
     <nav>
         <div class="wrap">
-            <span class="brand">🚦 斑馬線 / 紅綠燈 AI 辨識</span>
+            <span class="brand">🚦 斑馬線 / 紅綠燈 AI 辨識系統</span>
             <span class="links">
-                <a href="#crosswalk">斑馬線安全</a>
-                <a href="#signal">紅綠燈安全</a>
+                <a href="#standards">評估標準</a>
+                <a href="#features">核心技術</a>
                 <a href="#demo">👉 實作測試區</a>
             </span>
         </div>
     </nav>
 
     <header class="hero">
-        <small>EDGE AI × 交通安全</small>
+        <small>EDGE AI 實境應用展演</small>
         <h1>🚦 斑馬線 / 紅綠燈 AI 辨識系統</h1>
-        <p>先認識正確的過馬路觀念,再上傳街景照片,讓 AI 在你的瀏覽器裡直接辨識斑馬線與紅綠燈,並產生道路硬體危險度評估報告。</p>
-        <a class="btn" href="#demo">直接體驗辨識 🚀</a>
+        <p>結合 YOLO 物件偵測與靜態幾何規則引擎,即時定位斑馬線與紅綠燈的空間座標,自動計算退縮距離與車輛視線死角風險。</p>
+        <a class="btn" href="#demo">滑至頁尾體驗測試 🚀</a>
     </header>
 
     <main class="wrap">
-        <section id="crosswalk">
-            <h2>🚸 斑馬線安全宣導</h2>
-            <p class="sub">斑馬線是行人的安全通道,但不代表「絕對安全」。行人與駕駛人都有責任。</p>
+        <section id="standards">
+            <h2>📐 靜態危險度評估標準 (Rule-Based)</h2>
+            <p class="sub">本系統依據標準駕駛視野與道路幾何比例,設定雙重安全緩衝門檻:</p>
             <div class="grid">
-                <div class="card">
-                    <span class="tag" style="background:#1565c0">行人篇</span>
-                    <h3>🚶 過馬路,記得停看聽</h3>
-                    <ul>
-                        <li>走斑馬線或行人穿越道,不要隨意穿越馬路。</li>
-                        <li>踏出路口前先停下,看左右來車,確認車輛已停妥再通過。</li>
-                        <li>過馬路不要滑手機、不要戴耳機聽大音量。</li>
-                        <li>不要突然衝出,也不要在車輛前方或停靠車輛之間穿越。</li>
-                        <li>夜間盡量穿著淺色或反光衣物,讓駕駛人更容易看見你。</li>
-                    </ul>
+                <div class="card std red">
+                    <h3>🔴 視線盲區門檻 (18%)</h3>
+                    <p>斑馬線底邊距離影像底部小於總高度 18% 時,代表過於貼近轉角死角或車頭盲區。</p>
                 </div>
-                <div class="card">
-                    <span class="tag" style="background:#c62828">駕駛篇</span>
-                    <h3>🚗 看到斑馬線,減速禮讓</h3>
-                    <ul>
-                        <li>行經行人穿越道,遇有行人穿越時,應暫停讓行人先行。</li>
-                        <li>接近斑馬線要減速,隨時準備煞車。</li>
-                        <li>轉彎時特別注意行人,轉彎車要讓直行與行人先走。</li>
-                        <li>不要在斑馬線上停車或佔用,以免逼行人繞行車流。</li>
-                        <li>前車停下禮讓時,不要從旁邊超車,可能有行人被遮住。</li>
-                    </ul>
+                <div class="card std red">
+                    <h3>🔴 空間壓迫門檻 (25%)</h3>
+                    <p>斑馬線高度佔比超過影像總高度 25% 時,代表涵蓋近距離大面積死角。</p>
                 </div>
-                <div class="card">
-                    <span class="tag" style="background:#6a1b9a">道路設施篇</span>
-                    <h3>🛠️ 標線也需要保養</h3>
-                    <ul>
-                        <li>斑馬線磨損、褪色會讓駕駛人看不清楚,增加風險。</li>
-                        <li>路口樹木、停放車輛或招牌可能遮住視線形成死角。</li>
-                        <li>發現標線嚴重磨損或號誌故障,可向地方政府或 1999 通報。</li>
-                    </ul>
+                <div class="card std green">
+                    <h3>🟢 安全退縮標準</h3>
+                    <p>符合安全緩衝距離,車輛轉彎時擁有充足視野與應變反應時間。</p>
+                </div>
+                <div class="card std orange">
+                    <h3>🟠 號誌輔助檢查</h3>
+                    <p>同時偵測紅綠燈。畫面中有斑馬線卻沒有號誌時,報告會額外提醒評估增設號誌。</p>
                 </div>
             </div>
-            <div class="slogan">🧠 口訣:停 → 看 → 聽 → 確認車停好再走</div>
         </section>
 
-        <section id="signal">
-            <h2>🚦 紅綠燈安全宣導</h2>
-            <p class="sub">看懂燈號,是人車共用路口最基本的默契。</p>
+        <section id="arch">
+            <h2>💡 教學與架構延伸</h2>
+            <p class="sub">本專案展示完整的端到端(End-to-End)Edge AI 應用開發流程:</p>
+            <div class="card">
+                <ol>
+                    <li><b>資料標註與訓練:</b>使用 Roboflow 標註影像,並於 Google Colab 訓練 YOLO 模型(類別:斑馬線、紅綠燈)。</li>
+                    <li><b>跨平台輕量化:</b>將 <code>.pt</code> 模型轉檔為跨平台 ONNX 通用格式。</li>
+                    <li><b>前端融合推論:</b>透過 HTML5 + Canvas + JS 實現即時地端推理與視覺化呈報。</li>
+                </ol>
+                <p class="tip">👨‍💻 <b>課堂體驗:</b>可開啟開發者工具,或直接修改程式最上方的門檻參數(<code>BLIND_ZONE_RATIO = 0.18</code>、<code>PRESSURE_RATIO = 0.25</code>),親自調整決策邏輯!</p>
+            </div>
+        </section>
+
+        <section id="features">
+            <h2>🚀 系統核心技術特色</h2>
             <div class="grid">
-                <div class="card light red">
-                    <div class="dot">🔴</div>
-                    <h3>紅燈:停</h3>
-                    <ul>
-                        <li>車輛應停在停止線前,不可越線或壓到斑馬線。</li>
-                        <li>行人紅燈(紅色站立人)時不要穿越,在路邊等候。</li>
-                        <li>除非現場有標示允許,紅燈不可右轉。</li>
-                    </ul>
+                <div class="card feat">
+                    <div class="ico">⚡</div>
+                    <h3>純地端推論 (Edge AI)</h3>
+                    <p>採用 ONNX Runtime Web,所有資料與照片都在瀏覽器端運算,免後端伺服器且高隱私。</p>
                 </div>
-                <div class="card light yellow">
-                    <div class="dot">🟡</div>
-                    <h3>黃燈:減速準備</h3>
-                    <ul>
-                        <li>黃燈代表燈號即將改變,車輛應減速並準備停車。</li>
-                        <li>不要為了搶時間加速闖黃燈,事故很容易發生在這一刻。</li>
-                    </ul>
+                <div class="card feat">
+                    <div class="ico">🎯</div>
+                    <h3>YOLO 空間標定</h3>
+                    <p>基於輕量化 YOLO 模型,定位道路影像中斑馬線(Crosswalk)與紅綠燈(Traffic Light)的邊界座標與高寬比。</p>
                 </div>
-                <div class="card light green">
-                    <div class="dot">🟢</div>
-                    <h3>綠燈:通行,但仍要注意</h3>
-                    <ul>
-                        <li>綠燈起步前先左右看一眼,提防搶快的車輛。</li>
-                        <li>行人綠燈閃爍(或剩餘秒數很少)時,不要才開始穿越,已在路中者應儘速通過。</li>
-                        <li>轉彎車輛要禮讓綠燈穿越的行人。</li>
-                    </ul>
+                <div class="card feat">
+                    <div class="ico">🧠</div>
+                    <h3>幾何規則決策引擎</h3>
+                    <p>不只畫框,透過底邊退縮距離(18%)與面積佔比(25%)門檻,自動產出安全分析報告。</p>
                 </div>
             </div>
-            <div class="slogan">🧠 口訣:紅燈停、黃燈慢、綠燈也要看</div>
         </section>
 
         <section id="demo">
-            <h2>📷 AI 離線辨識實作測試區</h2>
-            <p class="sub">選擇一張街景照片,系統會在你的瀏覽器內辨識斑馬線與紅綠燈,照片不會上傳到任何伺服器。</p>
+            <h2>📷 斑馬線 / 紅綠燈離線 AI 辨識系統</h2>
+            <p class="sub">請選擇街景照片,系統將自動進行地端 AI 辨識與幾何算則分析。</p>
             <div class="demo-box">
                 <input type="file" id="imageInput" accept="image/*" disabled>
                 <div id="status">⏳ 正在載入模型中...</div>
@@ -162,17 +150,19 @@
                     <div class="row"><div class="label">辨識目標:</div><div id="reportTargets"></div></div>
                     <div class="row"><div class="label">風險等級:</div><div id="reportLevel"></div></div>
                     <div class="row"><div class="label">系統建議:</div><div id="reportAdvice"></div></div>
-                    <div class="row note">※ 本報告依「是否偵測到斑馬線與紅綠燈」以規則推估,僅供初步參考,不能取代現場勘查。</div>
+                    <div class="row note">※ 本報告依影像幾何比例以規則推估,僅供初步參考,不能取代現場勘查。</div>
                 </div>
             </div>
         </section>
     </main>
 
-    <footer>🚦 斑馬線 / 紅綠燈 AI 辨識系統 · 純瀏覽器端 ONNX Runtime 推論</footer>
+    <footer>🚦 斑馬線 / 紅綠燈 AI 辨識系統 (ONNX Runtime) · 專題與資訊營隊教學展示作品</footer>
 
     <script>
 const MODEL_SIZE = 640;
 const CONF_THRESHOLD = 0.4;
+const BLIND_ZONE_RATIO = 0.18;   // 斑馬線底邊距離影像底部 < 18% → 視線盲區
+const PRESSURE_RATIO = 0.25;     // 斑馬線高度 > 影像高度 25% → 空間壓迫
 const IOU_THRESHOLD = 0.45;
 
 // 順序必須和訓練時一致(從模型 metadata 讀到的)
@@ -326,47 +316,61 @@ function iou(a, b) {
     return union > 0 ? inter / union : 0;
 }
 
-// 依偵測結果產生評估報告(規則式判斷)
+// 依偵測結果產生評估報告(幾何規則)
 function renderReport(boxes) {
     const cw = boxes.filter(b => b.cls === 0);
     const tl = boxes.filter(b => b.cls === 1);
-    const maxScore = list => Math.max(...list.map(b => b.score));
     const pct = v => (v * 100).toFixed(1) + '%';
+    const imgH = canvas.height;
 
     // 辨識目標
     const targets = [];
-    if (cw.length) targets.push(`斑馬線 ${cw.length} 處(最高信心 ${pct(maxScore(cw))})`);
-    if (tl.length) targets.push(`紅綠燈 ${tl.length} 組(最高信心 ${pct(maxScore(tl))})`);
-    const targetText = targets.length ? targets.join('、') : '未偵測到斑馬線或紅綠燈';
-
     let level, color, advice = [];
 
-    if (cw.length && tl.length) {
-        level = '低風險'; color = '#2e7d32';
-        advice.push('已偵測到斑馬線與號誌,行人穿越設施大致完整。');
-        advice.push('建議定期巡檢標線磨損程度與號誌運作狀況。');
-    } else if (cw.length) {
-        level = '中風險'; color = '#ef6c00';
-        advice.push('偵測到斑馬線,但畫面中未見紅綠燈,可能為無號誌行人穿越道。');
-        advice.push('建議評估增設行人號誌、閃光警示燈或減速設施,並提醒駕駛人減速禮讓。');
-        advice.push('若號誌實際存在但在畫面外或過小,請換個角度重新拍攝確認。');
-    } else if (tl.length) {
-        level = '中風險'; color = '#ef6c00';
-        advice.push('偵測到紅綠燈,但未偵測到行人穿越標線,可能標線嚴重磨損、被遮擋或尚未劃設。');
-        advice.push('建議現場確認斑馬線狀況,必要時重新劃設標線。');
+    if (cw.length) {
+        // 以信心最高的斑馬線做幾何分析
+        const main = cw.reduce((a, b) => (b.score > a.score ? b : a));
+        const bottomGap = (imgH - (main.y + main.h)) / imgH;   // 底邊距離影像底部的比例
+        const heightRatio = main.h / imgH;                      // 高度佔影像比例
+        const blind = bottomGap < BLIND_ZONE_RATIO;
+        const pressure = heightRatio > PRESSURE_RATIO;
+
+        targets.push(`斑馬線 ${cw.length} 處(最高信心 ${pct(main.score)})`);
+        targets.push(`底邊距離影像底部 ${pct(bottomGap)}、高度佔比 ${pct(heightRatio)}`);
+
+        if (blind && pressure) {
+            level = '高風險'; color = '#c62828';
+            advice.push(`底邊距離僅 ${pct(bottomGap)}(門檻 ${pct(BLIND_ZONE_RATIO)}),過於貼近車頭盲區。`);
+            advice.push(`高度佔比 ${pct(heightRatio)}(門檻 ${pct(PRESSURE_RATIO)}),涵蓋近距離大面積死角。`);
+            advice.push('建議駕駛人提早減速,並加強路口視線與警示設施。');
+        } else if (blind) {
+            level = '中風險'; color = '#ef6c00';
+            advice.push(`底邊距離僅 ${pct(bottomGap)}(門檻 ${pct(BLIND_ZONE_RATIO)}),過於貼近車頭盲區或轉角死角。`);
+            advice.push('建議減速慢行,轉彎前確認行人動態。');
+        } else if (pressure) {
+            level = '中風險'; color = '#ef6c00';
+            advice.push(`高度佔比 ${pct(heightRatio)}(門檻 ${pct(PRESSURE_RATIO)}),斑馬線佔據近距離大面積視野。`);
+            advice.push('建議注意近距離行人,保持低速通過。');
+        } else {
+            level = '低風險'; color = '#2e7d32';
+            advice.push('符合安全退縮標準,車輛擁有充足視野與應變反應時間。');
+        }
+
+        if (!tl.length) {
+            advice.push('畫面中未偵測到紅綠燈,建議評估是否為無號誌路口,必要時增設號誌或警示設施。');
+        }
     } else {
         level = '無法評估'; color = '#616161';
-        advice.push('此圖片未偵測到相關設施,無法判定風險。');
-        advice.push('建議換用更清晰、涵蓋路口全景的照片,或適度調低偵測門檻後重試。');
+        advice.push('未偵測到斑馬線,無法進行幾何分析。');
+        advice.push('建議換用更清晰、涵蓋路口的照片,或適度調低偵測門檻後重試。');
     }
 
-    // 斑馬線信心偏低 → 可能磨損,風險上調
-    if (cw.length && maxScore(cw) < 0.6) {
-        advice.push('斑馬線辨識信心偏低,標線可能有磨損或反光不良,建議現場檢查。');
-        if (level === '低風險') { level = '中風險'; color = '#ef6c00'; }
+    if (tl.length) {
+        targets.push(`紅綠燈 ${tl.length} 組(最高信心 ${pct(Math.max(...tl.map(b => b.score)))})`);
     }
+    if (!targets.length) targets.push('未偵測到斑馬線或紅綠燈');
 
-    document.getElementById('reportTargets').innerText = targetText;
+    document.getElementById('reportTargets').innerHTML = targets.join('<br>');
     document.getElementById('reportLevel').innerHTML =
         `<span class="badge" style="background:${color}">${level}</span>`;
     document.getElementById('reportAdvice').innerHTML =
