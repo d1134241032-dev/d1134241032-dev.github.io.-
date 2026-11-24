@@ -9,6 +9,12 @@
         body { font-family: sans-serif; max-width: 960px; margin: 20px auto; padding: 0 12px; }
         canvas { max-width: 100%; height: auto; margin-top: 12px; border: 1px solid #ccc; }
         #status { margin: 10px 0; }
+        #report { display: none; margin-top: 16px; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; }
+        #report h3 { margin: 0; padding: 12px 16px; background: #37474f; color: #fff; font-size: 18px; }
+        #report .row { padding: 12px 16px; border-top: 1px solid #e0e0e0; line-height: 1.6; }
+        #report .label { font-weight: bold; margin-bottom: 4px; }
+        #report .badge { display: inline-block; padding: 2px 12px; border-radius: 12px; color: #fff; font-weight: bold; }
+        #report .note { font-size: 13px; color: #666; background: #fafafa; }
     </style>
 </head>
 <body>
@@ -17,6 +23,14 @@
     <input type="file" id="imageInput" accept="image/*" disabled>
     <div id="status">⏳ 正在載入模型中...</div>
     <canvas id="outputCanvas"></canvas>
+
+    <div id="report">
+        <h3>靜態道路硬體危險度評估報告</h3>
+        <div class="row"><div class="label">辨識目標:</div><div id="reportTargets"></div></div>
+        <div class="row"><div class="label">風險等級:</div><div id="reportLevel"></div></div>
+        <div class="row"><div class="label">系統建議:</div><div id="reportAdvice"></div></div>
+        <div class="row note">※ 本報告依「是否偵測到斑馬線與紅綠燈」以規則推估,僅供初步參考,不能取代現場勘查。</div>
+    </div>
 
     <script>
 const MODEL_SIZE = 640;
@@ -89,6 +103,7 @@ imageInput.addEventListener('change', async (e) => {
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
         statusDiv.innerText = "⚡ 正在進行 AI 推理...";
+        document.getElementById('report').style.display = 'none';
 
         try {
             const { tensor, scale, padX, padY } = preprocessImage(img);
@@ -99,6 +114,7 @@ imageInput.addEventListener('change', async (e) => {
 
             ctx.drawImage(img, 0, 0);
             drawBoxes(boxes);
+            renderReport(boxes);
 
             if (boxes.length === 0) {
                 statusDiv.innerText = "⚠️ 未偵測到斑馬線或紅綠燈";
@@ -170,6 +186,54 @@ function iou(a, b) {
     const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
     const union = a.w * a.h + b.w * b.h - inter;
     return union > 0 ? inter / union : 0;
+}
+
+// 依偵測結果產生評估報告(規則式判斷)
+function renderReport(boxes) {
+    const cw = boxes.filter(b => b.cls === 0);
+    const tl = boxes.filter(b => b.cls === 1);
+    const maxScore = list => Math.max(...list.map(b => b.score));
+    const pct = v => (v * 100).toFixed(1) + '%';
+
+    // 辨識目標
+    const targets = [];
+    if (cw.length) targets.push(`斑馬線 ${cw.length} 處(最高信心 ${pct(maxScore(cw))})`);
+    if (tl.length) targets.push(`紅綠燈 ${tl.length} 組(最高信心 ${pct(maxScore(tl))})`);
+    const targetText = targets.length ? targets.join('、') : '未偵測到斑馬線或紅綠燈';
+
+    let level, color, advice = [];
+
+    if (cw.length && tl.length) {
+        level = '低風險'; color = '#2e7d32';
+        advice.push('已偵測到斑馬線與號誌,行人穿越設施大致完整。');
+        advice.push('建議定期巡檢標線磨損程度與號誌運作狀況。');
+    } else if (cw.length) {
+        level = '中風險'; color = '#ef6c00';
+        advice.push('偵測到斑馬線,但畫面中未見紅綠燈,可能為無號誌行人穿越道。');
+        advice.push('建議評估增設行人號誌、閃光警示燈或減速設施,並提醒駕駛人減速禮讓。');
+        advice.push('若號誌實際存在但在畫面外或過小,請換個角度重新拍攝確認。');
+    } else if (tl.length) {
+        level = '中風險'; color = '#ef6c00';
+        advice.push('偵測到紅綠燈,但未偵測到行人穿越標線,可能標線嚴重磨損、被遮擋或尚未劃設。');
+        advice.push('建議現場確認斑馬線狀況,必要時重新劃設標線。');
+    } else {
+        level = '無法評估'; color = '#616161';
+        advice.push('此圖片未偵測到相關設施,無法判定風險。');
+        advice.push('建議換用更清晰、涵蓋路口全景的照片,或適度調低偵測門檻後重試。');
+    }
+
+    // 斑馬線信心偏低 → 可能磨損,風險上調
+    if (cw.length && maxScore(cw) < 0.6) {
+        advice.push('斑馬線辨識信心偏低,標線可能有磨損或反光不良,建議現場檢查。');
+        if (level === '低風險') { level = '中風險'; color = '#ef6c00'; }
+    }
+
+    document.getElementById('reportTargets').innerText = targetText;
+    document.getElementById('reportLevel').innerHTML =
+        `<span class="badge" style="background:${color}">${level}</span>`;
+    document.getElementById('reportAdvice').innerHTML =
+        advice.map(t => `• ${t}`).join('<br>');
+    document.getElementById('report').style.display = 'block';
 }
 
 function drawBoxes(boxes) {
