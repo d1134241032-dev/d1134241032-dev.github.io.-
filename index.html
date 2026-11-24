@@ -3,34 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>斑馬線 / 紅綠燈 AI 辨識</title>
+    <title>斑馬線 / 紅綠燈 AI 辨識與交通安全宣導</title>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <style>
-        body { font-family: sans-serif; max-width: 960px; margin: 20px auto; padding: 0 12px; }
-        canvas { max-width: 100%; height: auto; margin-top: 12px; border: 1px solid #ccc; }
-        #status { margin: 10px 0; }
-        #report { display: none; margin-top: 16px; border: 1px solid #ccc; border-radius: 8px; overflow: hidden; }
-        #report h3 { margin: 0; padding: 12px 16px; background: #37474f; color: #fff; font-size: 18px; }
-        #report .row { padding: 12px 16px; border-top: 1px solid #e0e0e0; line-height: 1.6; }
-        #report .label { font-weight: bold; margin-bottom: 4px; }
-        #report .badge { display: inline-block; padding: 2px 12px; border-radius: 12px; color: #fff; font-weight: bold; }
-        #report .note { font-size: 13px; color: #666; background: #fafafa; }
+        :root { --ink:#263238; --muted:#607d8b; --line:#e0e6ea; --bg:#f5f7f8; --card:#fff; --accent:#1565c0; }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+        body { margin:0; font-family: "Noto Sans TC","Microsoft JhengHei",sans-serif; color:var(--ink); background:var(--bg); line-height:1.7; }
+        a { color: inherit; }
+        .wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
+
+        nav { position: sticky; top: 0; z-index: 10; background: #263238; color: #fff; }
+        nav .wrap { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 16px; min-height:56px; }
+        nav .brand { font-weight:bold; font-size:17px; }
+        nav .links a { color:#cfd8dc; text-decoration:none; margin-left:16px; font-size:15px; }
+        nav .links a:hover { color:#fff; }
+
+        .hero { background: linear-gradient(135deg,#263238,#37474f); color:#fff; text-align:center; padding:56px 16px; }
+        .hero small { color:#ffcc80; letter-spacing:2px; }
+        .hero h1 { margin:8px 0 12px; font-size: clamp(26px,5vw,40px); }
+        .hero p { max-width:640px; margin:0 auto 20px; color:#cfd8dc; }
+        .btn { display:inline-block; background:#ffb300; color:#212121; padding:10px 22px; border-radius:24px; text-decoration:none; font-weight:bold; }
+
+        section { padding: 40px 0 8px; }
+        section h2 { margin:0 0 6px; font-size:24px; }
+        section .sub { color:var(--muted); margin:0 0 20px; }
+
+        .grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); }
+        .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; }
+        .card h3 { margin:0 0 8px; font-size:18px; }
+        .card ul { margin:0; padding-left:20px; }
+        .card li { margin-bottom:4px; }
+        .tag { display:inline-block; font-size:12px; padding:1px 10px; border-radius:10px; color:#fff; margin-bottom:8px; }
+
+        .light { border-top:6px solid; }
+        .light.red { border-color:#d32f2f; } .light.yellow { border-color:#f9a825; } .light.green { border-color:#2e7d32; }
+        .light .dot { font-size:28px; }
+
+        .slogan { margin-top:16px; background:#fff8e1; border:1px solid #ffe082; border-radius:12px; padding:14px 20px; text-align:center; font-size:18px; font-weight:bold; }
+
+        #demo { padding-bottom: 32px; }
+        .demo-box { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
+        canvas { max-width:100%; height:auto; margin-top:12px; border:1px solid #ccc; }
+        #status { margin:10px 0; }
+        #report { display:none; margin-top:16px; border:1px solid #ccc; border-radius:8px; overflow:hidden; background:#fff; }
+        #report h3 { margin:0; padding:12px 16px; background:#37474f; color:#fff; font-size:18px; }
+        #report .row { padding:12px 16px; border-top:1px solid #e0e0e0; line-height:1.6; }
+        #report .label { font-weight:bold; margin-bottom:4px; }
+        #report .badge { display:inline-block; padding:2px 12px; border-radius:12px; color:#fff; font-weight:bold; }
+        #report .note { font-size:13px; color:#666; background:#fafafa; }
+
+        footer { background:#263238; color:#90a4ae; text-align:center; padding:20px 16px; font-size:14px; }
     </style>
 </head>
 <body>
-    <h2>斑馬線 / 紅綠燈 AI 離線辨識</h2>
+    <nav>
+        <div class="wrap">
+            <span class="brand">🚦 斑馬線 / 紅綠燈 AI 辨識</span>
+            <span class="links">
+                <a href="#crosswalk">斑馬線安全</a>
+                <a href="#signal">紅綠燈安全</a>
+                <a href="#demo">👉 實作測試區</a>
+            </span>
+        </div>
+    </nav>
 
-    <input type="file" id="imageInput" accept="image/*" disabled>
-    <div id="status">⏳ 正在載入模型中...</div>
-    <canvas id="outputCanvas"></canvas>
+    <header class="hero">
+        <small>EDGE AI × 交通安全</small>
+        <h1>🚦 斑馬線 / 紅綠燈 AI 辨識系統</h1>
+        <p>先認識正確的過馬路觀念,再上傳街景照片,讓 AI 在你的瀏覽器裡直接辨識斑馬線與紅綠燈,並產生道路硬體危險度評估報告。</p>
+        <a class="btn" href="#demo">直接體驗辨識 🚀</a>
+    </header>
 
-    <div id="report">
-        <h3>靜態道路硬體危險度評估報告</h3>
-        <div class="row"><div class="label">辨識目標:</div><div id="reportTargets"></div></div>
-        <div class="row"><div class="label">風險等級:</div><div id="reportLevel"></div></div>
-        <div class="row"><div class="label">系統建議:</div><div id="reportAdvice"></div></div>
-        <div class="row note">※ 本報告依「是否偵測到斑馬線與紅綠燈」以規則推估,僅供初步參考,不能取代現場勘查。</div>
-    </div>
+    <main class="wrap">
+        <section id="crosswalk">
+            <h2>🚸 斑馬線安全宣導</h2>
+            <p class="sub">斑馬線是行人的安全通道,但不代表「絕對安全」。行人與駕駛人都有責任。</p>
+            <div class="grid">
+                <div class="card">
+                    <span class="tag" style="background:#1565c0">行人篇</span>
+                    <h3>🚶 過馬路,記得停看聽</h3>
+                    <ul>
+                        <li>走斑馬線或行人穿越道,不要隨意穿越馬路。</li>
+                        <li>踏出路口前先停下,看左右來車,確認車輛已停妥再通過。</li>
+                        <li>過馬路不要滑手機、不要戴耳機聽大音量。</li>
+                        <li>不要突然衝出,也不要在車輛前方或停靠車輛之間穿越。</li>
+                        <li>夜間盡量穿著淺色或反光衣物,讓駕駛人更容易看見你。</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <span class="tag" style="background:#c62828">駕駛篇</span>
+                    <h3>🚗 看到斑馬線,減速禮讓</h3>
+                    <ul>
+                        <li>行經行人穿越道,遇有行人穿越時,應暫停讓行人先行。</li>
+                        <li>接近斑馬線要減速,隨時準備煞車。</li>
+                        <li>轉彎時特別注意行人,轉彎車要讓直行與行人先走。</li>
+                        <li>不要在斑馬線上停車或佔用,以免逼行人繞行車流。</li>
+                        <li>前車停下禮讓時,不要從旁邊超車,可能有行人被遮住。</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <span class="tag" style="background:#6a1b9a">道路設施篇</span>
+                    <h3>🛠️ 標線也需要保養</h3>
+                    <ul>
+                        <li>斑馬線磨損、褪色會讓駕駛人看不清楚,增加風險。</li>
+                        <li>路口樹木、停放車輛或招牌可能遮住視線形成死角。</li>
+                        <li>發現標線嚴重磨損或號誌故障,可向地方政府或 1999 通報。</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="slogan">🧠 口訣:停 → 看 → 聽 → 確認車停好再走</div>
+        </section>
+
+        <section id="signal">
+            <h2>🚦 紅綠燈安全宣導</h2>
+            <p class="sub">看懂燈號,是人車共用路口最基本的默契。</p>
+            <div class="grid">
+                <div class="card light red">
+                    <div class="dot">🔴</div>
+                    <h3>紅燈:停</h3>
+                    <ul>
+                        <li>車輛應停在停止線前,不可越線或壓到斑馬線。</li>
+                        <li>行人紅燈(紅色站立人)時不要穿越,在路邊等候。</li>
+                        <li>除非現場有標示允許,紅燈不可右轉。</li>
+                    </ul>
+                </div>
+                <div class="card light yellow">
+                    <div class="dot">🟡</div>
+                    <h3>黃燈:減速準備</h3>
+                    <ul>
+                        <li>黃燈代表燈號即將改變,車輛應減速並準備停車。</li>
+                        <li>不要為了搶時間加速闖黃燈,事故很容易發生在這一刻。</li>
+                    </ul>
+                </div>
+                <div class="card light green">
+                    <div class="dot">🟢</div>
+                    <h3>綠燈:通行,但仍要注意</h3>
+                    <ul>
+                        <li>綠燈起步前先左右看一眼,提防搶快的車輛。</li>
+                        <li>行人綠燈閃爍(或剩餘秒數很少)時,不要才開始穿越,已在路中者應儘速通過。</li>
+                        <li>轉彎車輛要禮讓綠燈穿越的行人。</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="slogan">🧠 口訣:紅燈停、黃燈慢、綠燈也要看</div>
+        </section>
+
+        <section id="demo">
+            <h2>📷 AI 離線辨識實作測試區</h2>
+            <p class="sub">選擇一張街景照片,系統會在你的瀏覽器內辨識斑馬線與紅綠燈,照片不會上傳到任何伺服器。</p>
+            <div class="demo-box">
+                <input type="file" id="imageInput" accept="image/*" disabled>
+                <div id="status">⏳ 正在載入模型中...</div>
+                <canvas id="outputCanvas"></canvas>
+
+                <div id="report">
+                    <h3>靜態道路硬體危險度評估報告</h3>
+                    <div class="row"><div class="label">辨識目標:</div><div id="reportTargets"></div></div>
+                    <div class="row"><div class="label">風險等級:</div><div id="reportLevel"></div></div>
+                    <div class="row"><div class="label">系統建議:</div><div id="reportAdvice"></div></div>
+                    <div class="row note">※ 本報告依「是否偵測到斑馬線與紅綠燈」以規則推估,僅供初步參考,不能取代現場勘查。</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>🚦 斑馬線 / 紅綠燈 AI 辨識系統 · 純瀏覽器端 ONNX Runtime 推論</footer>
 
     <script>
 const MODEL_SIZE = 640;
