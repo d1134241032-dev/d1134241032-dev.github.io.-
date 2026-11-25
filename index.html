@@ -44,6 +44,16 @@
         .card ol { margin:0; padding-left:22px; }
         .card ol li { margin-bottom:6px; }
         .tip { margin:12px 0 0; background:#fff8e1; border:1px solid #ffe082; border-radius:8px; padding:10px 14px; }
+        .tbl { overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+        .tbl table { border-collapse:collapse; width:100%; min-width:640px; font-size:15px; }
+        .tbl th { background:#37474f; color:#fff; text-align:left; padding:10px 14px; }
+        .tbl td { padding:10px 14px; border-top:1px solid var(--line); vertical-align:top; }
+        .tbl td.cat { font-weight:bold; background:#fafafa; white-space:nowrap; }
+        .lvl { display:inline-block; padding:0 10px; border-radius:10px; color:#fff; font-size:13px; font-weight:bold; white-space:nowrap; }
+        .note-card { margin-top:16px; background:#eceff1; border-radius:12px; padding:14px 20px; font-size:15px; }
+        .legend { display:flex; flex-wrap:wrap; gap:8px 20px; margin:0 0 12px; font-size:14px; }
+        .legend i { display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:-2px; margin-right:6px; }
+        .out-list { margin:0; padding-left:20px; }
         code { background:#eceff1; padding:1px 6px; border-radius:4px; font-size:90%; }
 
         #demo { padding-bottom: 32px; }
@@ -65,8 +75,9 @@
         <div class="wrap">
             <span class="brand">🚦 斑馬線 / 紅綠燈 AI 辨識系統</span>
             <span class="links">
+                <a href="#abilities">辨識能力</a>
                 <a href="#standards">評估標準</a>
-                <a href="#features">核心技術</a>
+                <a href="#scenes">風險場景</a>
                 <a href="#demo">👉 實作測試區</a>
             </span>
         </div>
@@ -80,6 +91,37 @@
     </header>
 
     <main class="wrap">
+        <section id="abilities">
+            <h2>🔍 核心 AI 辨識能力</h2>
+            <p class="sub">針對道路硬體設施訓練的 YOLO 模型,共辨識兩種目標,並進一步換算成風險報告。</p>
+            <div class="grid">
+                <div class="card">
+                    <h3>🦓 斑馬線偵測 (Crosswalk)</h3>
+                    <p style="margin:0">找出照片中的行人穿越道,標出邊界框與信心分數,並取得它在畫面中的位置與大小。</p>
+                </div>
+                <div class="card">
+                    <h3>🚦 紅綠燈偵測 (Traffic Light)</h3>
+                    <p style="margin:0">找出路口的號誌燈,用來判斷這個路口是否有號誌管制。目前辨識「有沒有紅綠燈」,不分辨燈號顏色。</p>
+                </div>
+                <div class="card">
+                    <h3>📏 空間幾何分析</h3>
+                    <p style="margin:0">從斑馬線的框計算「底邊離畫面底部多遠」與「高度佔畫面多少」,換算成視線盲區與空間壓迫指標。</p>
+                </div>
+                <div class="card">
+                    <h3>📋 風險分級報告</h3>
+                    <p style="margin:0">綜合上述結果,自動產出「低風險、中風險、高風險、無法評估」其中一級,並附上具體建議。</p>
+                </div>
+            </div>
+            <div class="note-card">
+                <b>🎨 如何看懂辨識結果:</b>
+                <div class="legend" style="margin:8px 0 0">
+                    <span><i style="background:#00FF00"></i>綠框:斑馬線</span>
+                    <span><i style="background:#FF9800"></i>橘框:紅綠燈</span>
+                    <span>框上的百分比:AI 的信心程度,越高代表越確定</span>
+                </div>
+            </div>
+        </section>
+
         <section id="standards">
             <h2>📐 靜態危險度評估標準 (Rule-Based)</h2>
             <p class="sub">本系統依據標準駕駛視野與道路幾何比例,設定雙重安全緩衝門檻:</p>
@@ -100,6 +142,54 @@
                     <h3>🟠 號誌輔助檢查</h3>
                     <p>同時偵測紅綠燈。畫面中有斑馬線卻沒有號誌時,報告會額外提醒評估增設號誌。</p>
                 </div>
+            </div>
+        </section>
+
+        <section id="scenes">
+            <h2>🗺️ 交通風險與辨識場景</h2>
+            <p class="sub">本系統分析的是單張照片中的「道路硬體風險」,而不是判定駕駛人是否違規。以下是目前能辨識的場景:</p>
+            <div class="tbl">
+                <table>
+                    <thead><tr><th>風險類別</th><th>辨識場景</th><th>AI 偵測方式與判斷結果</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td class="cat" rowspan="2">斑馬線位置與大小</td>
+                            <td>視線盲區</td>
+                            <td>斑馬線底邊距離畫面底部小於 18%,代表太貼近車頭盲區或轉角死角。<span class="lvl" style="background:#ef6c00">中風險</span></td>
+                        </tr>
+                        <tr>
+                            <td>空間壓迫</td>
+                            <td>斑馬線高度佔畫面超過 25%,代表涵蓋近距離大面積死角。<span class="lvl" style="background:#ef6c00">中風險</span></td>
+                        </tr>
+                        <tr>
+                            <td class="cat">複合風險</td>
+                            <td>盲區 + 空間壓迫</td>
+                            <td>兩項門檻同時成立,車輛近距離接近斑馬線時反應時間最短。<span class="lvl" style="background:#c62828">高風險</span></td>
+                        </tr>
+                        <tr>
+                            <td class="cat" rowspan="2">號誌設施</td>
+                            <td>無號誌行人穿越道</td>
+                            <td>偵測到斑馬線,但畫面中沒有紅綠燈,報告會建議評估增設號誌或警示設施。</td>
+                        </tr>
+                        <tr>
+                            <td>有號誌但標線缺失</td>
+                            <td>偵測到紅綠燈,卻找不到斑馬線,可能標線磨損、被遮擋或未劃設,建議現場確認。<span class="lvl" style="background:#616161">無法評估</span></td>
+                        </tr>
+                        <tr>
+                            <td class="cat">安全狀態</td>
+                            <td>安全退縮</td>
+                            <td>斑馬線位置與大小皆在門檻內,駕駛人有充足視野與反應時間。<span class="lvl" style="background:#2e7d32">低風險</span></td>
+                        </tr>
+                        <tr>
+                            <td class="cat">資料品質</td>
+                            <td>未偵測到目標</td>
+                            <td>照片中找不到斑馬線與紅綠燈,不硬給風險等級,並提示換用更清晰的照片。<span class="lvl" style="background:#616161">無法評估</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="note-card">
+                <b>🚧 目前尚未支援(需新增訓練類別與資料):</b>行人與車輛偵測、未禮讓行人、違規停車、機車未戴安全帽等「行為類」違規。這類判斷需要辨識行人與車輛,甚至連續影像追蹤,不是單張照片的斑馬線與紅綠燈偵測能做到的。
             </div>
         </section>
 
@@ -141,6 +231,11 @@
             <h2>📷 斑馬線 / 紅綠燈離線 AI 辨識系統</h2>
             <p class="sub">請選擇街景照片,系統將自動進行地端 AI 辨識與幾何算則分析。</p>
             <div class="demo-box">
+                <div class="legend">
+                    <span><i style="background:#00FF00"></i>斑馬線</span>
+                    <span><i style="background:#FF9800"></i>紅綠燈</span>
+                    <span>辨識目標:斑馬線、紅綠燈(共 2 類)</span>
+                </div>
                 <input type="file" id="imageInput" accept="image/*" disabled>
                 <div id="status">⏳ 正在載入模型中...</div>
                 <canvas id="outputCanvas"></canvas>
@@ -362,7 +457,11 @@ function renderReport(boxes) {
     } else {
         level = '無法評估'; color = '#616161';
         advice.push('未偵測到斑馬線,無法進行幾何分析。');
-        advice.push('建議換用更清晰、涵蓋路口的照片,或適度調低偵測門檻後重試。');
+        if (tl.length) {
+            advice.push('畫面中有紅綠燈卻找不到斑馬線,可能標線磨損、被遮擋或未劃設,建議現場確認。');
+        } else {
+            advice.push('建議換用更清晰、涵蓋路口的照片,或適度調低偵測門檻後重試。');
+        }
     }
 
     if (tl.length) {
